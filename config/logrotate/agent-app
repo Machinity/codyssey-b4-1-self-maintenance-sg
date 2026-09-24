@@ -1,0 +1,27 @@
+# /etc/logrotate.d/agent-app   (선택: monitor.sh 내장 로테이션 대신 logrotate 를 쓰는 경우)
+#
+# 미션은 monitor.sh 안에 로테이션 로직을 구현했으므로 이 파일은 "비교 학습용" 이다.
+# 둘을 동시에 켜면 같은 파일을 두 곳에서 회전시켜 번호가 꼬이므로 하나만 사용한다.
+#
+# 주의: logrotate 는 줄 끝(inline) 주석을 지원하지 않는다. 주석은 반드시 별도 줄에 쓴다.
+#
+# 테스트: sudo logrotate -d /etc/logrotate.d/agent-app   (dry-run)
+#         sudo logrotate -f /etc/logrotate.d/agent-app   (강제 실행)
+/var/log/agent-app/monitor.log {
+    # 디렉토리가 root 이외의 그룹에 쓰기 가능하면 logrotate 는 보안상 회전을 거부한다.
+    # → 어떤 사용자/그룹 권한으로 회전할지 명시해야 한다.
+    su agent-admin agent-core
+
+    # 10MB 를 넘으면 회전 (logrotate 는 logrotate.timer 로 하루 1회 실행됨에 유의)
+    size 10M
+
+    # 현재 파일 1 + 과거 9 = 최대 10개
+    rotate 9
+
+    missingok
+    notifempty
+    create 0660 agent-admin agent-core
+
+    # 압축은 보너스 2(log_retention.sh) 가 담당하므로 여기서는 하지 않는다.
+    nocompress
+}

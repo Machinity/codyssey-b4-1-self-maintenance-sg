@@ -1,0 +1,39 @@
+# /etc/systemd/system/agent-app.service   (현업 확장: guide/field/F3 참고, 미션 필수 아님)
+#
+# 터미널에서 직접 실행하는 대신 systemd 서비스로 운영하면
+#   - 부팅 시 자동 시작, 비정상 종료 시 자동 재시작
+#   - 로그는 journald 로 수집 (journalctl -u agent-app)
+#   - 샌드박스(파일시스템/권한 제한)를 선언적으로 적용
+[Unit]
+Description=Agent App (service robot on-device agent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agent-admin
+Group=agent-admin
+SupplementaryGroups=agent-common agent-core
+EnvironmentFile=/etc/agent-app/agent.env
+WorkingDirectory=/home/agent-admin/agent-app
+# 아키텍처에 맞는 파일명으로 바꾼다 (x86 / arm64)
+ExecStart=/home/agent-admin/agent-app/agent-app-linux-x86
+Restart=on-failure
+RestartSec=5
+
+# ---- 하드닝 ----
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/agent-app /home/agent-admin/agent-app/upload_files
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# 메모리 폭주 시 로봇 전체가 멈추지 않도록 상한을 둔다
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

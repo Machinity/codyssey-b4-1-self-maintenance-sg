@@ -1,0 +1,17 @@
+# agent-admin 의 crontab   (등록: sudo crontab -u agent-admin config/cron/agent-admin.crontab)
+#
+# ┌ 분(0-59) ┌ 시(0-23) ┌ 일(1-31) ┌ 월(1-12) ┌ 요일(0-7, 0/7=일)
+# │          │          │          │          │
+# *          *          *          *          *   명령
+#
+# cron 은 최소한의 환경(PATH=/usr/bin:/bin, HOME, SHELL 정도)으로 실행된다.
+# monitor.sh 가 스스로 PATH 와 /etc/agent-app/agent.env 를 설정하므로 여기서는 생략해도 된다.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+
+# [미션 필수] 매분 상태 점검
+#   콘솔 출력(경고 등)은 메일 대신 syslog(journald) 로 보낸다 → journalctl -t agent-monitor
+* * * * * /home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor
+
+# [보너스 2] 매일 03:10 로그 보존 정책 실행 (guide/08 진행 후 주석 해제)
+#10 3 * * * /home/agent-admin/agent-app/bin/log_retention.sh 2>&1 | /usr/bin/logger -t agent-retention

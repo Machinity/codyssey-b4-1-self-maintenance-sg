@@ -1,0 +1,8 @@
+# /etc/sudoers.d/agent-monitor  (root:root, 0440)
+# 반드시 'sudo visudo -f /etc/sudoers.d/agent-monitor' 로 편집한다.
+#   (문법 오류가 있는 sudoers 파일은 sudo 전체를 망가뜨린다)
+#
+# monitor.sh 가 방화벽 상태를 "조회"만 할 수 있도록 허용한다.
+#   - 인자까지 정확히 'status' 로 고정 → 'ufw disable' 등은 불가
+#   - 비밀번호 없이(NOPASSWD) → cron 에서 사람 입력 없이 실행 가능
+%agent-core ALL=(root) NOPASSWD: /usr/sbin/ufw status
