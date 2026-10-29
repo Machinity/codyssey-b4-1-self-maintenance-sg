@@ -67,28 +67,30 @@
 
 ### 2-0. 준비: 비상 출입구 확보
 
-- [ ] VM 콘솔 창에 `ops` 로 로그인되어 있다.
-- [ ] 내 PC에서 SSH 터미널 A 가 열려 있다.
+- [x] VM 콘솔 창에 `ops` 로 로그인되어 있다.
+- [x] 내 PC에서 SSH 터미널 A 가 열려 있다.
 
 ### 2-1. 현재 상태 관찰 (변경 전 기록)
 
 ```bash
-ops@vm$ sudo ss -tulnp | grep sshd
-# tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=...,fd=3))
-# tcp LISTEN 0 128    [::]:22    [::]:* users:(("sshd",pid=...,fd=4))
+ops@robot-01$ sudo ss -tulnp | grep sshd
+tcp   LISTEN 0      128                0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=837,fd=3))            
+tcp   LISTEN 0      128                   [::]:22            [::]:*    users:(("sshd",pid=837,fd=4))  
 
-ops@vm$ grep -n 'Include' /etc/ssh/sshd_config
-# 12:Include /etc/ssh/sshd_config.d/*.conf    ← 위쪽에 있는 것 확인
+ops@robot-01$ grep -n 'Include' /etc/ssh/sshd_config
+12:Include /etc/ssh/sshd_config.d/*.conf
 
-ops@vm$ ls -l /etc/ssh/sshd_config.d/
+ops@robot-01$ ls -l /etc/ssh/sshd_config.d/
+total 4
+-rw------- 1 root root 27 Sep 24 09:26 50-cloud-init.conf
 
 # 메인 파일에 "활성화된" Port / PermitRootLogin 이 있는지 (주석 # 이 아닌 줄)
-ops@vm$ grep -nE '^[[:space:]]*(Port|PermitRootLogin)' /etc/ssh/sshd_config
-# 아무것도 안 나오면 정상 (22.04 기본값은 모두 주석 처리되어 있음)
+ops@robot-01$ grep -nE '^[[:space:]]*(Port|PermitRootLogin)' /etc/ssh/sshd_config
+# 미출력 (22.04 기본값은 모두 주석 처리되어 있음)
 
-ops@vm$ sudo sshd -T | grep -Ei '^(port|permitrootlogin) '
-# port 22
-# permitrootlogin without-password    ← 기본값: 키로는 root 로그인 허용 상태!
+ops@robot-01$ sudo sshd -T | grep -Ei '^(port|permitrootlogin) '
+port 22
+permitrootlogin without-password ← 기본값: 키로는 root 로그인 허용 상태!
 ```
 
 > `ss -tulnp` 옵션: **t**cp, **u**dp, **l**isten 상태만, **n**umeric(포트 번호를 이름으로 바꾸지 않음), **p**rocess(어떤 프로세스인지, root 권한 필요)
@@ -98,7 +100,7 @@ ops@vm$ sudo sshd -T | grep -Ei '^(port|permitrootlogin) '
 ### 2-2. 백업
 
 ```bash
-ops@vm$ sudo cp -a /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%F)
+ops@robot-01$ sudo cp -a /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%F)
 ```
 
 ### 2-3. drop-in 설정 파일 작성
@@ -106,7 +108,7 @@ ops@vm$ sudo cp -a /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%F)
 직접 작성해 보는 것을 권장합니다.
 
 ```bash
-ops@vm$ sudo nano /etc/ssh/sshd_config.d/10-agent-hardening.conf
+ops@robot-01$ sudo nano /etc/ssh/sshd_config.d/10-agent-hardening.conf
 ```
 
 ```
@@ -123,7 +125,7 @@ X11Forwarding no
 또는 저장소의 원본을 설치합니다 (주석으로 각 줄의 의미가 설명되어 있음).
 
 ```bash
-ops@vm$ sudo install -m 644 -o root -g root \
+ops@robot-01$ sudo install -m 644 -o root -g root \
           $REPO/config/ssh/10-agent-hardening.conf /etc/ssh/sshd_config.d/
 ```
 
@@ -132,25 +134,25 @@ ops@vm$ sudo install -m 644 -o root -g root \
 2-1 에서 메인 파일에 활성화된 `Port 22` 가 있었다면 주석 처리합니다.
 
 ```bash
-ops@vm$ sudo sed -i 's/^[[:space:]]*Port 22/#Port 22/' /etc/ssh/sshd_config
+ops@robot-01$ sudo sed -i 's/^[[:space:]]*Port 22/#Port 22/' /etc/ssh/sshd_config
 ```
 
 ### 2-4. 적용 전 검증 (절대 생략 금지)
 
 ```bash
 # 1) 문법 검사: 아무 출력이 없으면 정상
-ops@vm$ sudo sshd -t
-
+ops@robot-01$ sudo sshd -t
+# 미출력
 # 2) 적용될 최종 값 미리 보기
-ops@vm$ sudo sshd -T | grep -Ei '^(port|permitrootlogin|maxauthtries|x11forwarding) '
-# port 20022
-# permitrootlogin no
-# maxauthtries 3
-# x11forwarding no
+ops@robot-01$ sudo sshd -T | grep -Ei '^(port|permitrootlogin|maxauthtries|x11forwarding) '
+port 20022
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
 
 # 3) 방화벽이 이미 켜져 있다면 새 포트부터 연다 (지금은 inactive 일 것)
-ops@vm$ sudo ufw status
-# Status: inactive  → 그대로 진행
+ops@robot-01$ sudo ufw status
+Status: inactive  → 그대로 진행
 # Status: active    → sudo ufw allow 20022/tcp  를 먼저 실행!
 ```
 
@@ -159,11 +161,18 @@ ops@vm$ sudo ufw status
 ### 2-5. 적용
 
 ```bash
-ops@vm$ sudo systemctl restart ssh
-ops@vm$ systemctl status ssh --no-pager | head -n 5    # active (running)
-ops@vm$ sudo ss -tulnp | grep sshd
-# tcp LISTEN 0 128 0.0.0.0:20022 0.0.0.0:* users:(("sshd",...))
-# tcp LISTEN 0 128    [::]:20022    [::]:* users:(("sshd",...))
+ops@robot-01$ sudo systemctl restart ssh
+
+ops@robot-01$ systemctl status ssh --no-pager | head -n 5    # active
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2026-10-29 11:21:07 KST; 22s ago
+       Docs: man:sshd(8)
+             man:sshd_config(5)
+
+ops@robot-01$ sudo ss -tulnp | grep sshd
+tcp   LISTEN 0      128                0.0.0.0:20022      0.0.0.0:*    users:(("sshd",pid=2243,fd=3))           
+tcp   LISTEN 0      128                   [::]:20022         [::]:*    users:(("sshd",pid=2243,fd=4))  
 ```
 
 22번이 사라지고 20022 만 남아야 합니다. **터미널 A 는 아직 끊지 마세요.**
@@ -173,23 +182,26 @@ ops@vm$ sudo ss -tulnp | grep sshd
 ```bash
 # ① 새 포트로 접속 → 성공해야 함
 mac$ ssh -p 20022 ops@<VM_IP>
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-194-generic aarch64) ...
 
 # ② 옛 포트 → 거부되어야 함
 mac$ ssh -p 22 ops@<VM_IP>
-# ssh: connect to host ... port 22: Connection refused
+ssh: connect to host ... port 22: Connection refused
 
 # ③ root 접속 → 거부되어야 함
 mac$ ssh -p 20022 root@<VM_IP>
-# root@...'s password:  (아무거나 입력)
-# Permission denied, please try again.
+root@...'s password:  (아무거나 입력)
+Permission denied, please try again.
 ```
 
 ③ 의 거부 기록을 서버 로그에서 확인합니다.
 
 ```bash
-ops@vm$ sudo journalctl -u ssh --since "10 min ago" --no-pager | tail -n 20
-# ... Failed password for root from 192.168.x.x port ... ssh2
-# 또는 ROOT LOGIN REFUSED ...
+ops@robot-01$ sudo journalctl -u ssh --since "10 min ago" --no-pager | tail -n 20
+...
+Oct 29 11:35:51 robot-01 sshd[2771]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=<MAC_IP>  user=root
+Oct 29 11:35:53 robot-01 sshd[2771]: Failed password for root from <MAC_IP> port 49828 ssh2
+...
 ```
 
 ✅ 체크포인트: ① 성공, ② Connection refused, ③ Permission denied. **이제서야** 터미널 A 를 닫아도 됩니다.
