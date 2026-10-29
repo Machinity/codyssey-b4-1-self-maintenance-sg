@@ -63,35 +63,57 @@ Ubuntu의 UFW는 기본으로 IPv6 규칙도 함께 만듭니다(`/etc/ufw/defau
 ### 2-0. 전제 확인
 
 ```bash
-ops@vm$ sudo ss -tulnp | grep sshd      # 01장 완료: 20022 에서 LISTEN
-ops@vm$ sudo ufw status verbose
-# Status: inactive
+ops@robot-01$ sudo ss -tulnp | grep sshd      # 01장
+tcp   LISTEN 0      128                0.0.0.0:20022      0.0.0.0:*    users:(("sshd",pid=837,fd=3))            
+tcp   LISTEN 0      128                   [::]:20022         [::]:*    users:(("sshd",pid=837,fd=4))  
+ops@robot-01$ sudo ufw status verbose
+Status: inactive
 ```
 
-- [ ] VM 콘솔 창이 열려 있다.
-- [ ] 지금 SSH 접속이 **20022** 로 되어 있다.
+- [x] VM 콘솔 창이 열려 있다.
+- [x] 지금 SSH 접속이 **20022** 로 되어 있다.
 
 ### 2-1. (필요 시) 기존 규칙 초기화
 
 이전에 UFW를 만진 적이 있다면 깨끗하게 시작합니다. 처음이라면 건너뜁니다.
 
 ```bash
-ops@vm$ sudo ufw --force reset     # 모든 규칙 삭제 + 비활성화 (백업 파일이 /etc/ufw 에 남음)
+ops@robot-01$ sudo ufw --force reset     # 모든 규칙 삭제 + 비활성화 (백업 파일이 /etc/ufw 에 남음)
+Backing up 'user.rules' to '/etc/ufw/user.rules.20261029_141848'
+Backing up 'before.rules' to '/etc/ufw/before.rules.20261029_141848'
+Backing up 'after.rules' to '/etc/ufw/after.rules.20261029_141848'
+Backing up 'user6.rules' to '/etc/ufw/user6.rules.20261029_141848'
+Backing up 'before6.rules' to '/etc/ufw/before6.rules.20261029_141848'
+Backing up 'after6.rules' to '/etc/ufw/after6.rules.20261029_141848'
 ```
 
 ### 2-2. 기본 정책
 
 ```bash
-ops@vm$ sudo ufw default deny incoming
-ops@vm$ sudo ufw default allow outgoing
-ops@vm$ sudo ufw default deny routed      # 로봇이 라우터 역할을 할 일은 없다
+ops@robot-01:~$ sudo ufw default deny incoming
+Default incoming policy changed to 'deny'
+(be sure to update your rules accordingly)
+
+ops@robot-01:~$ sudo ufw default allow outgoing
+Default outgoing policy changed to 'allow'
+(be sure to update your rules accordingly)
+
+ops@robot-01:~$ sudo ufw default deny routed
+Default routed policy changed to 'deny'
+(be sure to update your rules accordingly)  # 로봇이 라우터 역할을 할 일은 없다
 ```
 
 ### 2-3. 허용 규칙 (정확히 두 개)
 
 ```bash
-ops@vm$ sudo ufw allow 20022/tcp comment 'SSH (custom port)'
-ops@vm$ sudo ufw allow 15034/tcp comment 'agent-app'
+ops@robot-01:~$ sudo ufw allow 20022/tcp comment 'SSH (custom port)'
+[sudo] password for ops: 
+Rules updated
+Rules updated (v6)
+
+ops@robot-01:~$ sudo ufw allow 15034/tcp comment 'agent-app'
+Rules updated
+Rules updated (v6)
 ```
 
 > `/tcp` 를 빼면 TCP와 **UDP 둘 다** 열립니다. 미션은 TCP만 요구하므로 반드시 프로토콜을 지정합니다. (최소 허용)
@@ -101,9 +123,10 @@ ops@vm$ sudo ufw allow 15034/tcp comment 'agent-app'
 ### 2-4. 활성화 전 검토
 
 ```bash
-ops@vm$ sudo ufw show added
-# ufw allow 20022/tcp comment 'SSH (custom port)'
-# ufw allow 15034/tcp comment 'agent-app'
+ops@robot-01:~$ sudo ufw show added
+Added user rules (see 'ufw status' for running firewall):
+ufw allow 20022/tcp comment 'SSH (custom port)'
+ufw allow 15034/tcp comment 'agent-app'
 ```
 
 여기에 `22`, `OpenSSH` 등 다른 규칙이 있으면 `sudo ufw delete allow 22` 등으로 지웁니다.
@@ -111,9 +134,8 @@ ops@vm$ sudo ufw show added
 ### 2-5. 활성화
 
 ```bash
-ops@vm$ sudo ufw enable
-# Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
-# Firewall is active and enabled on system startup
+ops@robot-01:~$ sudo ufw enable
+Firewall is active and enabled on system startup
 ```
 
 > 현장이라면 여기서 "5분 뒤 자동 원복" 을 걸어 둡니다 → 아래 🤖 현장 노트 참고.
@@ -121,23 +143,34 @@ ops@vm$ sudo ufw enable
 ### 2-6. 검증 ① — 설정
 
 ```bash
-ops@vm$ sudo ufw status verbose
-# Status: active
-# Logging: on (low)
-# Default: deny (incoming), allow (outgoing), deny (routed)
-# New profiles: skip
-#
-# To                         Action      From
-# --                         ------      ----
-# 20022/tcp                  ALLOW IN    Anywhere                   # SSH (custom port)
-# 15034/tcp                  ALLOW IN    Anywhere                   # agent-app
-# 20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH (custom port)
-# 15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # agent-app
+ops@robot-01:~$ sudo ufw status verbose
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
 
-ops@vm$ sudo ufw status numbered     # 규칙 번호 (삭제할 때 사용)
-ops@vm$ systemctl is-enabled ufw     # enabled → 재부팅 후에도 유지
-ops@vm$ grep ENABLED /etc/ufw/ufw.conf
-# ENABLED=yes
+To                         Action      From
+--                         ------      ----
+20022/tcp                  ALLOW IN    Anywhere                   # SSH (custom port)
+15034/tcp                  ALLOW IN    Anywhere                   # agent-app
+20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH (custom port)
+15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # agent-app
+
+ops@robot-01:~$ sudo ufw status numbered
+Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 20022/tcp                  ALLOW IN    Anywhere                   # SSH (custom port)
+[ 2] 15034/tcp                  ALLOW IN    Anywhere                   # agent-app
+[ 3] 20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH (custom port)
+[ 4] 15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # agent-app
+
+ops@robot-01:~$ systemctl is-enabled ufw
+enabled
+
+ops@robot-01:~$ grep ENABLED /etc/ufw/ufw.conf
+ENABLED=yes
 ```
 
 ✅ 체크포인트: `ALLOW IN` 규칙이 **20022/tcp, 15034/tcp (+ v6)** 뿐이고 `Default: deny (incoming)`.
@@ -149,36 +182,42 @@ ops@vm$ grep ENABLED /etc/ufw/ufw.conf
 ```bash
 # (a) 허용 + LISTEN → 성공
 mac$ nc -vz -w 3 <VM_IP> 20022
-# Connection to <VM_IP> port 20022 [tcp/*] succeeded!
+Connection to <VM_IP> port 20022 [tcp/*] succeeded!
 
 # (b) 허용 + LISTEN 없음(앱 미실행) → refused
 mac$ nc -vz -w 3 <VM_IP> 15034
-# connect to <VM_IP> port 15034 (tcp) failed: Connection refused
+nc: connectx to <VM_IP> port 15034 (tcp) failed: Connection refused
 
 # (c) 차단 → timeout (응답 자체가 없음)
 mac$ nc -vz -w 3 <VM_IP> 22
+^C
 # ... Operation timed out
 ```
 
 **"기본 차단"을 눈으로 확인하는 실험** — VM에서 임시 웹서버를 띄워 봅니다.
 
 ```bash
-ops@vm$ python3 -m http.server 8080          # 터미널 B 에서, 실행 상태로 둔다
+ops@robot-01:~$ python3 -m http.server 8080          # 터미널 B 에서, 실행 상태로 둔다
+
 mac$    nc -vz -w 3 <VM_IP> 8080             # timeout → LISTEN 중이어도 방화벽이 막음
-ops@vm$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080   # 200 → VM 내부에서는 됨
+
+ops@robot-01:~$ python3 -m http.server 8080
+Serving HTTP on 0.0.0.0 port 8080 (http://0.0.0.0:8080/) ...
+127.0.0.1 - - [29/Oct/2026 15:03:26] "GET / HTTP/1.0" 200 -  # 200 → VM 내부에서는 됨
 # 확인 후 Ctrl+C 로 종료
 ```
 
 ✅ 체크포인트: (a) succeeded, (b) refused, (c) timeout, 8080 은 외부 timeout / 내부 200.
 
-📸 스크린샷: `ufw status verbose` 와 (a)(b)(c) 결과.
-
 ### 2-8. 차단 로그 보기
 
 ```bash
 ops@vm$ sudo ufw logging low        # 기본값. 차단된 패킷을 커널 로그에 남김
-ops@vm$ sudo journalctl -k --since "10 min ago" | grep 'UFW BLOCK' | tail -n 3
-# ... [UFW BLOCK] IN=enp0s1 ... SRC=192.168.64.1 DST=192.168.64.5 ... PROTO=TCP SPT=... DPT=22 ...
+
+ops@robot-01:~$ sudo journalctl -k --since "10 min ago" | grep 'UFW BLOCK' | tail -n 3
+Oct 29 15:02:23 robot-01 kernel: [UFW BLOCK] IN=enp0s1 OUT= MAC=<MAC> SRC=<MAC_IP> DST=<VM_IP> LEN=64 TOS=0x00 PREC=0x00 TTL=64 ID=0 PROTO=TCP SPT=50259 DPT=8080 WINDOW=65535 RES=0x00 SYN URGP=0 
+Oct 29 15:02:25 robot-01 kernel: [UFW BLOCK] IN=enp0s1 OUT= MAC=<MAC> SRC=<MAC_IP> DST=<VM_IP> LEN=64 TOS=0x00 PREC=0x00 TTL=64 ID=0 PROTO=TCP SPT=50259 DPT=8080 WINDOW=65535 RES=0x00 SYN URGP=0 
+Oct 29 15:02:29 robot-01 kernel: [UFW BLOCK] IN=enp0s1 OUT= MAC=<MAC> SRC=<MAC_IP> DST=<VM_IP> LEN=64 TOS=0x00 PREC=0x00 TTL=64 ID=0 PROTO=TCP SPT=50259 DPT=8080 WINDOW=65535 RES=0x00 SYN URGP=0 
 ```
 
 `DPT=22`(목적지 포트), `SRC`(누가) 를 읽을 수 있으면 됩니다. 방금 2-7 (c) 에서 여러분이 보낸 패킷입니다.
