@@ -1,0 +1,50 @@
+################################################################
+# SSH 포트 변경(20022) 및 Root 원격 접속 차단
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+# drop-in 설정 파일
+
+$ ls -l /etc/ssh/sshd_config.d/
+total 8
+-rw-r--r-- 1 root root 80 Oct 29 11:33 10-agent-hardening.conf
+-rw------- 1 root root 27 Sep 24 09:26 50-cloud-init.conf
+(exit=0)
+
+$ cat /etc/ssh/sshd_config.d/10-agent-hardening.conf
+Port 20022
+PermitRootLogin no
+MaxAuthTries 3
+LoginGraceTime 30
+X11Forwarding no
+(exit=0)
+
+# 메인 설정에 활성화된 Port/PermitRootLogin 이 남아있지 않은지 (주석만 있어야 함)
+
+$ grep -nE '^[[:space:]]*#?[[:space:]]*(Port|PermitRootLogin|Include)' /etc/ssh/sshd_config
+12:Include /etc/ssh/sshd_config.d/*.conf
+14:#Port 22
+33:#PermitRootLogin prohibit-password
+(exit=0)
+
+# sshd 가 실제로 적용한 최종 설정 (sshd -T = effective config)
+
+$ sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|maxauthtries|x11forwarding) '
+port 20022
+maxauthtries 3
+permitrootlogin no
+passwordauthentication yes
+x11forwarding no
+(exit=0)
+
+# 리슨 상태: 20022 만 있어야 하고 22 는 없어야 함
+
+$ ss -tulnp | grep -E 'sshd|State'
+Netid State  Recv-Q Send-Q       Local Address:Port  Peer Address:PortProcess                                   
+tcp   LISTEN 0      128                0.0.0.0:20022      0.0.0.0:*    users:(("sshd",pid=938,fd=3))            
+tcp   LISTEN 0      128                   [::]:20022         [::]:*    users:(("sshd",pid=938,fd=4))            
+(exit=0)
+
+$ systemctl is-active ssh
+active
+(exit=0)

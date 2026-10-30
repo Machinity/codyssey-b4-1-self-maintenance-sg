@@ -1,0 +1,62 @@
+################################################################
+# 환경 변수 및 앱 실행 상태
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ ls -l /etc/agent-app/agent.env && cat /etc/agent-app/agent.env
+-rw-r----- 1 root agent-common 901 Oct 30 12:37 /etc/agent-app/agent.env
+# /etc/agent-app/agent.env  (root:agent-common, 640)
+#
+# agent-app 실행 환경의 "단일 진실 공급원(Single Source of Truth)".
+#   - 로그인 셸  : /etc/profile.d/agent-app.sh 가 읽음
+#   - monitor.sh : 스크립트 시작 시 직접 읽음 (cron 에는 환경 변수가 없으므로)
+#   - systemd    : EnvironmentFile= 로 읽음 (현업 확장, guide/field 참고)
+#
+# 형식 규칙: KEY=VALUE 만 쓴다. (export 금지, $변수 참조 금지)
+#   systemd EnvironmentFile 은 $AGENT_HOME 같은 참조를 펼치지 않기 때문에
+#   모든 값을 절대 경로로 적는다.
+
+AGENT_HOME=/home/agent-admin/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/home/agent-admin/agent-app/upload_files
+AGENT_LOG_DIR=/var/log/agent-app
+
+# 미션 명세 값. guide/05 의 "부팅 결과에 따른 분기" 를 보고 필요하면 수정한다.
+AGENT_KEY_PATH=/home/agent-admin/agent-app/api_keys
+(exit=0)
+
+$ ls -l /home/agent-admin/agent-app/api_keys/
+total 8
+-rw-rw---- 1 agent-admin agent-core 19 Oct 30 12:40 secret.key
+-rw-rw---- 1 agent-admin agent-core 19 Oct 30 11:50 t_secret.key
+(exit=0)
+
+# 키 파일 내용 대신 '기대값과 일치 여부'만 기록 (비밀 값 비노출)
+
+$ for f in /home/agent-admin/agent-app/api_keys/*.key; do printf '%s : ' "$f"; [ "$(tr -d '[:space:]' < "$f")" = agent_api_key_test ] && echo 'content OK' || echo 'content MISMATCH'; done
+/home/agent-admin/agent-app/api_keys/secret.key : content OK
+/home/agent-admin/agent-app/api_keys/t_secret.key : content OK
+(exit=0)
+
+$ ps -o user,pid,ppid,ni,etime,cmd -C agent-app-linux
+USER         PID    PPID  NI     ELAPSED CMD
+agent-a+    2261    2243   0       02:47 ./agent-app-linux-arm64
+agent-a+    2262    2261  10       02:47 ./agent-app-linux-arm64
+(exit=0)
+
+$ ss -tlnp 'sport = :15034'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      1            0.0.0.0:15034      0.0.0.0:*    users:(("agent-app-linux",pid=2262,fd=4))
+(exit=0)
+
+# 실행 중인 앱 프로세스(PID 2262)가 실제로 받은 환경 변수
+
+$ tr '\0' '\n' < /proc/2262/environ | grep '^AGENT_' | sort
+AGENT_HOME=/home/agent-admin/agent-app
+AGENT_KEY_PATH=/home/agent-admin/agent-app/api_keys
+AGENT_LOG_DIR=/var/log/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/home/agent-admin/agent-app/upload_files
+(exit=0)
+
+# 부팅 로그는 guide/05 에서 script 명령으로 저장한 05_app_boot.txt 를 함께 제출

@@ -1,0 +1,38 @@
+################################################################
+# 실습 환경 정보
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ lsb_release -a
+No LSB modules are available.
+Distributor ID:	Ubuntu
+Description:	Ubuntu 22.04.5 LTS
+Release:	22.04
+Codename:	jammy
+(exit=0)
+
+$ uname -a
+Linux robot-01 5.15.0-194-generic #204-Ubuntu SMP Wed Sep 2 13:30:29 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+(exit=0)
+
+$ hostnamectl
+ Static hostname: robot-01
+       Icon name: computer-vm
+         Chassis: vm
+      Machine ID: 5466c173f54b4e5a9db29bea0c1a868d
+         Boot ID: 4abf5639e3d7498d877a0795919d68ab
+  Virtualization: qemu
+Operating System: Ubuntu 22.04.5 LTS
+          Kernel: Linux 5.15.0-194-generic
+    Architecture: arm64
+ Hardware Vendor: QEMU
+  Hardware Model: QEMU Virtual Machine
+(exit=0)
+
+$ timedatectl | head -n 5
+               Local time: Fri 2026-10-30 16:59:48 KST
+           Universal time: Fri 2026-10-30 07:59:48 UTC
+                 RTC time: Fri 2026-10-30 07:59:48
+                Time zone: Asia/Seoul (KST, +0900)
+System clock synchronized: yes
+(exit=0)

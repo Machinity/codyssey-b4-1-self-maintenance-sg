@@ -1,0 +1,48 @@
+################################################################
+# UFW 활성화 및 20022/tcp, 15034/tcp 만 허용
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ ufw status verbose
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+20022/tcp                  ALLOW IN    Anywhere                   # SSH (custom port)
+15034/tcp                  ALLOW IN    Anywhere                   # agent-app
+20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH (custom port)
+15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # agent-app
+
+(exit=0)
+
+$ ufw status numbered
+Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 20022/tcp                  ALLOW IN    Anywhere                   # SSH (custom port)
+[ 2] 15034/tcp                  ALLOW IN    Anywhere                   # agent-app
+[ 3] 20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH (custom port)
+[ 4] 15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # agent-app
+
+(exit=0)
+
+# 전체 LISTEN 포트 (방화벽 정책과 비교: 열려 있는 포트 ≠ 허용된 포트)
+
+$ ss -tulnH | awk '{print $1, $5}' | sort -u
+tcp 0.0.0.0:15034
+tcp 0.0.0.0:20022
+tcp 127.0.0.1:631
+tcp 127.0.0.53%lo:53
+tcp [::1]:631
+tcp [::]:20022
+udp 0.0.0.0:44807
+udp 0.0.0.0:5353
+udp 127.0.0.53%lo:53
+udp 192.168.64.2%enp0s1:68
+udp [::]:45730
+udp [::]:5353
+(exit=0)
