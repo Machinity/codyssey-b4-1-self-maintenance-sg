@@ -156,21 +156,27 @@ cron 의 매분 실행과 사람이 수동으로 돌린 실행이 **동시에 �
 
 ```bash
 # 1) 문법 검사 먼저 (문법이 틀린 sudoers 파일은 sudo 전체를 마비시킨다)
-ops@vm$ sudo visudo -cf $REPO/config/sudoers/agent-monitor
-# .../agent-monitor: parsed OK
+ops@robot-01:~$ sudo visudo -cf $REPO/config/sudoers/agent-monitor
+/home/ops/codyssey-b4-1-self-maintenance-sg/config/sudoers/agent-monitor: 
 
 # 2) 설치 (0440, root 소유여야 sudo 가 읽는다)
-ops@vm$ sudo install -m 440 -o root -g root $REPO/config/sudoers/agent-monitor /etc/sudoers.d/agent-monitor
-ops@vm$ sudo visudo -c
+ops@robot-01:~$ sudo install -m 440 -o root -g root $REPO/config/sudoers/agent-monitor /etc/sudoers.d/agent-monitor
+
+ops@robot-01:~$ sudo visudo -c
+/etc/sudoers: parsed OK
+/etc/sudoers.d/README: parsed OK
+/etc/sudoers.d/agent-monitor: parsed OK
 
 # 3) 허용된 것은 되고
-ops@vm$ sudo -u agent-admin sudo -n /usr/sbin/ufw status | head -n 1
-# Status: active
+ops@robot-01:~$ sudo -u agent-admin sudo -n /usr/sbin/ufw status | head -n 1
+Status: active
+
 # 4) 허용되지 않은 것은 안 된다
-ops@vm$ sudo -u agent-admin sudo -n /usr/sbin/ufw disable
-# sudo: a password is required        ← 거부됨 (정상)
-ops@vm$ sudo -u agent-test sudo -n /usr/sbin/ufw status
-# sudo: a password is required        ← agent-core 가 아니므로 거부 (정상)
+ops@robot-01:~$ sudo -u agent-admin sudo -n /usr/sbin/ufw disable
+sudo: a password is required    #   ← 거부됨 (정상)
+
+ops@robot-01:~$ sudo -u agent-test sudo -n /usr/sbin/ufw status
+sudo: a password is required     #   ← agent-core 가 아니므로 거부 (정상)
 ```
 
 > 직접 편집한다면 반드시 `sudo visudo -f /etc/sudoers.d/agent-monitor` 를 쓰세요. 저장 시 문법 검사를 해줍니다.
@@ -184,9 +190,9 @@ ops@vm$ sudo -u agent-test sudo -n /usr/sbin/ufw status
 monitor.sh 의 작성자는 `agent-dev` 입니다. 단계마다 **작성 → 실행 → 결과 확인**을 반복합니다.
 
 ```bash
-ops@vm$ sudo -iu agent-dev
-agent-dev@vm$ cd "$AGENT_HOME/bin"
-agent-dev@vm$ nano monitor.sh          # vim 이 익숙하면 vim
+ops@robot-01:~$ sudo -iu agent-dev
+agent-dev@robot-01:~$ cd "$AGENT_HOME/bin"
+agent-dev@robot-01:/home/agent-admin/agent-app/bin$ nano monitor.sh         # vim 이 익숙하면 vim
 ```
 
 테스트 실행은 두 가지로 합니다.
@@ -228,11 +234,12 @@ echo "AGENT_HOME=$AGENT_HOME PORT=$AGENT_PORT LOG=$LOG_FILE"   # 확인용, 다�
 ```
 
 ```bash
-agent-dev@vm$ bash monitor.sh
-# AGENT_HOME=/home/agent-admin/agent-app PORT=15034 LOG=/var/log/agent-app/monitor.log
+agent-dev@robot-01:/home/agent-admin/agent-app/bin$ bash monitor.sh
+AGENT_HOME=/home/agent-admin/agent-app PORT=15034 LOG=/var/log/agent-app/monitor.log
 
 # cron 과 같은 "텅 빈 환경"에서도 같은 결과가 나오는지 (env -i = 환경 변수 전부 제거)
-agent-dev@vm$ env -i /bin/bash monitor.sh
+agent-dev@robot-01:/home/agent-admin/agent-app/bin$ env -i /bin/bash monitor.sh
+AGENT_HOME=/home/agent-admin/agent-app PORT=15034 LOG=/var/log/agent-app/monitor.log
 ```
 
 ✅ 두 결과가 같아야 합니다. 이 `env -i` 테스트는 07장 cron 디버깅의 핵심 도구입니다.
@@ -443,7 +450,7 @@ exit 0
 작성이 끝나면 완성본과 비교해 빠진 것이 없는지 확인합니다(ops 계정).
 
 ```bash
-ops@vm$ diff <(sed 's/[[:space:]]*#.*//' $REPO/scripts/monitor.sh      | grep -v '^$') \
+ops@robot-01:~$ diff <(sed 's/[[:space:]]*#.*//' $REPO/scripts/monitor.sh      | grep -v '^$') \
              <(sudo sed 's/[[:space:]]*#.*//' $AH/bin/monitor.sh | grep -v '^$')
 # 주석·빈 줄을 제외하고 비교. 차이가 있으면 의도한 것인지 확인
 # (ops 는 $AH/bin 을 읽을 수 없으므로 오른쪽만 sudo 로 읽는다)
@@ -451,7 +458,7 @@ ops@vm$ diff <(sed 's/[[:space:]]*#.*//' $REPO/scripts/monitor.sh      | grep -v
 
 > 막혔다면 완성본을 그대로 설치하고 **한 줄씩 읽으며 이해**하는 방식으로 진행해도 됩니다.
 > ```bash
-> ops@vm$ sudo install -o agent-dev -g agent-core -m 750 $REPO/scripts/monitor.sh $AH/bin/monitor.sh
+> ops@robot-01:~$ sudo install -o agent-dev -g agent-core -m 750 $REPO/scripts/monitor.sh $AH/bin/monitor.sh
 > ```
 
 ### 3-8. 소유자·권한 설정 (미션 필수)
@@ -475,7 +482,13 @@ agent-dev@vm$ ls -l "$AGENT_HOME/bin/monitor.sh"
 ### T1. 정상 실행 (cron 실행자 agent-admin)
 
 ```bash
-ops@vm$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
+ops@robot-01:~$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
+====== SYSTEM MONITOR RESULT ======
+
+[HEALTH CHECK]
+Checking process 'agent-app-linux'... [OK] (PID: 2853)
+Checking port 15034... [OK]
+exit=0
 ```
 
 ```
@@ -502,23 +515,32 @@ exit=0
 ### T2. 권한 없는 사용자
 
 ```bash
-ops@vm$ sudo -u agent-test $AH/bin/monitor.sh
-# ... Permission denied        ← agent-test 는 agent-core 가 아님 (정상)
+ops@robot-01:~$ sudo -u agent-test bash -c "$AH/bin/monitor.sh"
+bash: line 1: /home/agent-admin/agent-app/bin/monitor.sh: Permission denied     #   ← agent-test 는 agent-core 가 아님 (정상)
+
+ops@robot-01:~$ id agent-test
+uid=1003(agent-test) gid=1005(agent-test) groups=1005(agent-test),1001(agent-common)
 ```
 
 ### T3. 앱이 죽었을 때 (exit 1)
 
 ```bash
 # tmux 세션으로 가서 앱을 Ctrl+C 로 종료
-ops@vm$ tmux attach -t agent       # Ctrl+C → Agent Shutdown 확인 → Ctrl+b d
+^C2026-10-30 15:40:41,706 [INFO] === Agent Shutdown. Releasing resources. ===
+2026-10-30 15:40:41,706 [INFO] User interrupted process. Shutting down gracefully...
+agent-admin@robot-01:~/agent-app$       # Ctrl+C → Agent Shutdown 확인 → Ctrl+b d
 
-ops@vm$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
-# [HEALTH CHECK]
-# Checking process 'agent-app-linux'... [FAIL]
-# [2026-09-23 14:05:12] [ERROR] Process 'agent-app-linux' is not running
-# exit=1
+ops@robot-01:~$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
+====== SYSTEM MONITOR RESULT ======
 
-ops@vm$ sudo tail -n 2 /var/log/agent-app/monitor.log     # [ERROR] 줄도 기록됨
+[HEALTH CHECK]
+Checking process 'agent-app-linux'... [FAIL]
+[2026-10-30 15:41:22] [ERROR] Process 'agent-app-linux' is not running
+exit=1
+
+ops@robot-01:~$ sudo tail -n 2 /var/log/agent-app/monitor.log
+[2026-10-30 14:35:18] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 15:41:22] [ERROR] Process 'agent-app-linux' is not running     # [ERROR] 줄도 기록됨
 ```
 
 **앱을 다시 실행**해 둡니다 (`tmux attach -t agent` → `./agent-app-linux-*` → `Ctrl+b d`).
@@ -528,22 +550,48 @@ ops@vm$ sudo tail -n 2 /var/log/agent-app/monitor.log     # [ERROR] 줄도 기�
 ### T4. 방화벽 비활성 (경고 후 계속)
 
 ```bash
-ops@vm$ sudo ufw disable
-ops@vm$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
-# Checking firewall (ufw)... [WARN]
-# [WARNING] Firewall(ufw) is not active
-# ... (자원 수집, 로그 기록까지 계속 진행)
-# exit=0
-ops@vm$ sudo ufw enable          # 반드시 다시 켠다!
-ops@vm$ sudo ufw status | head -n1
+ops@robot-01:~$ sudo ufw disable
+Firewall stopped and disabled on system startup
+
+ops@robot-01:~$ sudo -u agent-admin $AH/bin/monitor.sh; echo "exit=$?"
+====== SYSTEM MONITOR RESULT ======
+
+[HEALTH CHECK]
+Checking process 'agent-app-linux'... [OK] (PID: 2955)
+Checking port 15034... [OK]
+Checking firewall (ufw)... [WARN]
+[WARNING] Firewall(ufw) is not active
+
+[RESOURCE MONITORING]
+CPU Usage : 5.6%
+MEM Usage : 58.6%
+DISK Used : 98%
+[WARNING] MEM threshold exceeded (58.6% > 10%)
+[WARNING] DISK threshold exceeded (98% > 80%)
+
+[INFO] Log appended: /var/log/agent-app/monitor.log
+exit=0
+
+ops@robot-01:~$ sudo ufw enable
+Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+Firewall is active and enabled on system startup         # 반드시 다시 켠다!
+
+ops@robot-01:~$ sudo ufw status | head -n1
+Status: active
 ```
 
 ### T5. 로그 형식 검증
 
 ```bash
-ops@vm$ sudo tail -n 5 /var/log/agent-app/monitor.log
-ops@vm$ sudo grep -cE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\] PID:[0-9]+ CPU:[0-9.]+% MEM:[0-9.]+% DISK_USED:[0-9]+%$' \
+ops@robot-01:~$ sudo tail -n 5 /var/log/agent-app/monitor.log
+[2026-10-30 14:35:18] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 15:41:22] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:00:00] PID:2955 CPU:5.6% MEM:58.6% DISK_USED:98%
+[2026-10-30 16:02:09] PID:2955 CPU:5.5% MEM:58.2% DISK_USED:98%
+
+ops@robot-01:~$ sudo grep -cE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\] PID:[0-9]+ CPU:[0-9.]+% MEM:[0-9.]+% DISK_USED:[0-9]+%$' \
       /var/log/agent-app/monitor.log
+2
 # 측정 줄 수와 같아야 함
 ```
 
@@ -553,22 +601,51 @@ ops@vm$ sudo grep -cE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\
 
 ```bash
 # 현재 로그 백업
-ops@vm$ sudo -u agent-admin cp -p /var/log/agent-app/monitor.log /var/log/agent-app/monitor.log.bak
+ops@robot-01:~$ sudo -u agent-admin cp -p /var/log/agent-app/monitor.log /var/log/agent-app/monitor.log.bak
 
 # 300바이트마다 회전하도록 12번 실행
-ops@vm$ for i in $(seq 1 12); do
+ops@robot-01:~$ for i in $(seq 1 12); do
           sudo -u agent-admin env MONITOR_LOG_MAX_BYTES=300 $AH/bin/monitor.sh | grep -E 'rotated|appended'
         done
-ops@vm$ sudo ls -l /var/log/agent-app/
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log rotated: /var/log/agent-app/monitor.log (334 bytes) -> /var/log/agent-app/monitor.log.1
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log rotated: /var/log/agent-app/monitor.log (320 bytes) -> /var/log/agent-app/monitor.log.1
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log appended: /var/log/agent-app/monitor.log
+[INFO] Log rotated: /var/log/agent-app/monitor.log (320 bytes) -> /var/log/agent-app/monitor.log.1
+[INFO] Log appended: /var/log/agent-app/monitor.log
+
+ops@robot-01:~$ sudo ls -l /var/log/agent-app/
+total 352
+-rw-rw---- 1 agent-admin agent-core 334914 Oct 30 16:04 agent_app.log
+-rw-rw---- 1 agent-admin agent-core     64 Oct 30 16:04 monitor.log
+-rw-rw---- 1 agent-admin agent-core    320 Oct 30 16:04 monitor.log.1
+-rw-rw---- 1 agent-admin agent-core    320 Oct 30 16:04 monitor.log.2
+-rw-rw---- 1 agent-dev   agent-core    334 Oct 30 16:04 monitor.log.3
+-rw-rw---- 1 agent-admin agent-core    270 Oct 30 16:02 monitor.log.bak
 # monitor.log, monitor.log.1 ~ monitor.log.9  → 최대 10개, .10 은 생기지 않음
-ops@vm$ sudo ls /var/log/agent-app/ | grep -c '^monitor\.log\(\.[0-9]\+\)\?$'    # 10
+
+ops@robot-01:~$ sudo ls /var/log/agent-app/ | grep -c '^monitor\.log\(\.[0-9]\+\)\?$'
+4
 ```
 
 📸 스크린샷. 확인 후 테스트 파일을 정리하고 백업을 복원합니다.
 
 ```bash
-ops@vm$ sudo -u agent-admin bash -c 'cd /var/log/agent-app && rm -f monitor.log.[1-9] && cat monitor.log >> monitor.log.bak && mv monitor.log.bak monitor.log'
-ops@vm$ sudo ls -l /var/log/agent-app/
+ops@robot-01:~$ sudo -u agent-admin bash -c 'cd /var/log/agent-app && rm -f monitor.log.[1-9] && cat monitor.log >> monitor.log.bak && mv monitor.log.bak monitor.log'
+
+ops@robot-01:~$ sudo ls -l /var/log/agent-app/
+total 340
+-rw-rw---- 1 agent-admin agent-core 339823 Oct 30 16:06 agent_app.log
+-rw-rw---- 1 agent-admin agent-core    334 Oct 30 16:06 monitor.log
 ```
 
 > 실제 10MB 조건 확인(선택): `sudo -u agent-admin truncate -s 11M /var/log/agent-app/monitor.log` 후 1회 실행하면 회전됩니다. (truncate 는 파일 끝을 0 바이트로 채우므로 확인 후 `monitor.log.1` 을 지우세요.)
@@ -576,7 +653,12 @@ ops@vm$ sudo ls -l /var/log/agent-app/
 ### T7. 동시 실행 (선택)
 
 ```bash
-ops@vm$ sudo -u agent-admin $AH/bin/monitor.sh >/dev/null & sudo -u agent-admin $AH/bin/monitor.sh | head -n 3; wait
+ops@robot-01:~$ sudo -u agent-admin $AH/bin/monitor.sh >/dev/null & sudo -u agent-admin $AH/bin/monitor.sh | head -n 3; wait
+[1] 4537
+====== SYSTEM MONITOR RESULT ======
+
+[HEALTH CHECK]
+[1]+  Done                    sudo -u agent-admin $AH/bin/monitor.sh > /dev/null
 # 두 번째 실행은 첫 번째가 끝날 때까지 대기 후 실행됨 (flock)
 ```
 
