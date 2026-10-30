@@ -84,8 +84,8 @@
 ### 2-1. 문제 관찰: 홈 디렉토리 통과 권한
 
 ```bash
-ops@vm$ ls -ld /home/agent-admin
-# drwxr-x--- 2 agent-admin agent-admin ... /home/agent-admin     ← 750 (Ubuntu 21.04+ 기본값)
+ops@robot-01:~$ ls -ld /home/agent-admin
+drwxr-x--- 2 agent-admin agent-admin 4096 Oct 29 18:12 /home/agent-admin   # ← 750 (Ubuntu 21.04+ 기본값)
 ```
 
 `AGENT_HOME` 이 `/home/agent-admin` 아래에 있는데, `agent-dev`, `agent-test` 는 이 디렉토리의 other 에 해당하므로 **통과(x)조차 못 합니다.**
@@ -97,16 +97,17 @@ ops@vm$ ls -ld /home/agent-admin
 | **ACL: `agent-common` 에게만 `--x`** | ✅ 필요한 그룹에만, 필요한 최소 권한(통과만, 목록 보기 불가) |
 
 ```bash
-ops@vm$ sudo setfacl -m g:agent-common:--x /home/agent-admin
-ops@vm$ getfacl -p /home/agent-admin
-# # file: /home/agent-admin
-# # owner: agent-admin
-# # group: agent-admin
-# user::rwx
-# group::r-x
-# group:agent-common:--x
-# mask::r-x
-# other::---
+ops@robot-01:~$ sudo setfacl -m g:agent-common:--x /home/agent-admin
+
+ops@robot-01:~$ getfacl -p /home/agent-admin
+# file: /home/agent-admin
+# owner: agent-admin
+# group: agent-admin
+user::rwx
+group::r-x
+group:agent-common:--x
+mask::r-x
+other::---
 ```
 
 ### 2-2. 디렉토리 생성
@@ -114,32 +115,33 @@ ops@vm$ getfacl -p /home/agent-admin
 `$AH` 는 00장에서 `~/.bashrc` 에 넣어 둔 약칭입니다. (앱용 정식 환경 변수 `AGENT_HOME` 은 05장에서 고정합니다.)
 
 ```bash
-ops@vm$ echo $AH          # /home/agent-admin/agent-app
+ops@robot-01:~$ echo $AH
+/home/agent-admin/agent-app
 
 # 앱 홈
-ops@vm$ sudo mkdir -p $AH
-ops@vm$ sudo chown agent-admin:agent-common $AH
-ops@vm$ sudo chmod 2750 $AH
+ops@robot-01:~$ sudo mkdir -p $AH
+ops@robot-01:~$ sudo chown agent-admin:agent-common $AH
+ops@robot-01:~$ sudo chmod 2750 $AH
 
 # 공유 디렉토리
-ops@vm$ sudo mkdir -p $AH/upload_files
-ops@vm$ sudo chown agent-admin:agent-common $AH/upload_files
-ops@vm$ sudo chmod 2770 $AH/upload_files
+ops@robot-01:~$ sudo mkdir -p $AH/upload_files
+ops@robot-01:~$ sudo chown agent-admin:agent-common $AH/upload_files
+ops@robot-01:~$ sudo chmod 2770 $AH/upload_files
 
 # 보안 디렉토리: API 키
-ops@vm$ sudo mkdir -p $AH/api_keys
-ops@vm$ sudo chown agent-admin:agent-core $AH/api_keys
-ops@vm$ sudo chmod 2770 $AH/api_keys
+ops@robot-01:~$ sudo mkdir -p $AH/api_keys
+ops@robot-01:~$ sudo chown agent-admin:agent-core $AH/api_keys
+ops@robot-01:~$ sudo chmod 2770 $AH/api_keys
 
 # 스크립트 디렉토리 (06장 monitor.sh). 작성자 agent-dev, 실행은 agent-core
-ops@vm$ sudo mkdir -p $AH/bin
-ops@vm$ sudo chown agent-dev:agent-core $AH/bin
-ops@vm$ sudo chmod 2750 $AH/bin
+ops@robot-01:~$ sudo mkdir -p $AH/bin
+ops@robot-01:~$ sudo chown agent-dev:agent-core $AH/bin
+ops@robot-01:~$ sudo chmod 2750 $AH/bin
 
 # 보안 디렉토리: 로그
-ops@vm$ sudo mkdir -p /var/log/agent-app
-ops@vm$ sudo chown agent-admin:agent-core /var/log/agent-app
-ops@vm$ sudo chmod 2770 /var/log/agent-app
+ops@robot-01:~$ sudo mkdir -p /var/log/agent-app
+ops@robot-01:~$ sudo chown agent-admin:agent-core /var/log/agent-app
+ops@robot-01:~$ sudo chmod 2770 /var/log/agent-app
 ```
 
 `2770` 을 풀어 읽으면: setgid(2) + 소유자 rwx(7) + 그룹 rwx(7) + other 없음(0).
@@ -147,8 +149,7 @@ ops@vm$ sudo chmod 2770 /var/log/agent-app
 ### 2-3. Default ACL — 새 파일도 그룹 R/W 를 상속하도록
 
 ```bash
-ops@vm$ sudo setfacl -d -m u::rwx,g::rwx,o::--- \
-          $AH/upload_files $AH/api_keys /var/log/agent-app
+ops@robot-01:~$ sudo setfacl -d -m u::rwx,g::rwx,o::--- \ $AH/upload_files $AH/api_keys /var/log/agent-app
 ```
 
 - `-d` : default ACL 을 설정 (디렉토리에 새로 생기는 것에 적용)
@@ -156,33 +157,42 @@ ops@vm$ sudo setfacl -d -m u::rwx,g::rwx,o::--- \
 - `o::---` : 그 외 사용자는 아무 권한 없음
 
 ```bash
-ops@vm$ sudo getfacl -p $AH/api_keys
-# # file: /home/agent-admin/agent-app/api_keys
-# # owner: agent-admin
-# # group: agent-core
-# # flags: -s-                 ← setgid
-# user::rwx
-# group::rwx
-# other::---
-# default:user::rwx
-# default:group::rwx
-# default:other::---
+ops@robot-01:~$ sudo getfacl -p $AH/api_keys
+# file: /home/agent-admin/agent-app/api_keys
+# owner: agent-admin
+# group: agent-core
+# flags: -s-                ← setgid
+user::rwx
+group::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:other::---
 ```
 
 ### 2-4. 구조 확인
 
 ```bash
-ops@vm$ sudo ls -la $AH
-# drwxr-s--- 5 agent-admin agent-common ... .
-# drwxr-s--- 2 agent-dev   agent-core   ... bin
-# drwxrws---+ 2 agent-admin agent-core   ... api_keys
-# drwxrws---+ 2 agent-admin agent-common ... upload_files
-ops@vm$ ls -ld /var/log/agent-app
-# drwxrws---+ 2 agent-admin agent-core ... /var/log/agent-app
+ops@robot-01:~$ sudo ls -la $AH
+total 20
+drwxr-s---  5 agent-admin agent-common 4096 Oct 29 19:19 .
+drwxr-x---+ 3 agent-admin agent-admin  4096 Oct 29 19:17 ..
+drwxrws---+ 2 agent-admin agent-core   4096 Oct 29 19:18 api_keys
+drwxr-s---  2 agent-dev   agent-core   4096 Oct 29 19:19 bin
+drwxrws---+ 2 agent-admin agent-common 4096 Oct 29 19:17 upload_files
+
+ops@robot-01:~$ ls -ld /var/log/agent-app
+drwxrws---+ 2 agent-admin agent-core 4096 Oct 29 19:19 /var/log/agent-app
 
 # 경로상 모든 디렉토리 권한을 한 번에
 # (ops 는 agent-common 이 아니므로 /home/agent-admin 을 통과할 수 없다 → 확인 명령에도 sudo 필요)
-ops@vm$ sudo namei -l $AH/api_keys
+ops@robot-01:~$ sudo namei -l $AH/api_keys
+f: /home/agent-admin/agent-app/api_keys
+drwxr-xr-x root        root         /
+drwxr-xr-x root        root         home
+drwxr-x--- agent-admin agent-admin  agent-admin
+drwxr-s--- agent-admin agent-common agent-app
+drwxrws--- agent-admin agent-core   api_keys
 ```
 
 ### 2-5. 권한 검증 — "되어야 하는 것"과 "안 되어야 하는 것" 모두
@@ -190,7 +200,7 @@ ops@vm$ sudo namei -l $AH/api_keys
 보안 설정은 **허용 테스트(positive)** 만큼 **차단 테스트(negative)** 가 중요합니다.
 
 ```bash
-ops@vm$ cat > /tmp/permtest.sh <<'EOF'
+ops@robot-01:~$ ccat > /tmp/permtest.sh <<'EOF'
 AH=/home/agent-admin/agent-app
 chk() { if sudo -u "$1" bash -c "$2" >/dev/null 2>&1; then echo "O"; else echo "X"; fi; }
 printf '%-40s %-12s %-12s %-12s\n' "작업" agent-admin agent-dev agent-test
@@ -207,7 +217,14 @@ api_keys 파일 생성/삭제|touch $AH/api_keys/.t_@U@ && rm $AH/api_keys/.t_@U
 bin 목록 보기|ls $AH/bin
 T
 EOF
-ops@vm$ bash /tmp/permtest.sh
+
+ops@robot-01:~$ bash /tmp/permtest.sh
+작업                                      agent-admin  agent-dev    agent-test
+upload_files 파일 생성/삭제                O            O            O
+api_keys 목록 보기                         O            O            X
+api_keys 파일 생성/삭제                    O            O            X
+/var/log/agent-app 파일 생성/삭제          O            O            X
+bin 목록 보기                              O            O            X
 ```
 
 기대 결과:
@@ -227,14 +244,17 @@ bin 목록 보기                              O            O            X
 
 ```bash
 # agent-dev 가 공유 디렉토리에 파일을 만든다 (umask 를 일부러 077 로 가장 엄격하게)
-ops@vm$ sudo -u agent-dev bash -c 'umask 077; echo hello > /home/agent-admin/agent-app/upload_files/from-dev.txt'
-ops@vm$ sudo ls -l $AH/upload_files/from-dev.txt
-# -rw-rw---- 1 agent-dev agent-common 6 ... from-dev.txt
+ops@robot-01:~$ sudo -u agent-dev bash -c 'umask 077; echo hello > /home/agent-admin/agent-app/upload_files/from-dev.txt'
+
+ops@robot-01:~$ sudo ls -l $AH/upload_files/from-dev.txt
+-rw-rw---- 1 agent-dev agent-common 6 Oct 29 19:32 /home/agent-admin/agent-app/upload_files/from-dev.txt
 #      ↑ umask 077 이었는데도 그룹 rw     ↑ 그룹이 agent-dev 가 아니라 agent-common (setgid)
 
 # agent-test 가 그 파일을 수정할 수 있는가?
-ops@vm$ sudo -u agent-test bash -c 'echo "qa checked" >> /home/agent-admin/agent-app/upload_files/from-dev.txt' && echo OK
-ops@vm$ sudo rm $AH/upload_files/from-dev.txt
+ops@robot-01:~$ sudo -u agent-test bash -c 'echo "qa checked" >> /home/agent-admin/agent-app/upload_files/from-dev.txt' && echo OK
+OK
+
+ops@robot-01:~$ sudo rm $AH/upload_files/from-dev.txt
 ```
 
 > 비교 실험(선택): `sudo setfacl -k $AH/upload_files` (default ACL 제거) 후 같은 실험을 하면 `-rw-------` 가 되어 agent-test 가 실패합니다. 확인 후 2-3 을 다시 실행해 복구하세요.
