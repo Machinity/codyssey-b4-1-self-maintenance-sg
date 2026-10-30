@@ -1,0 +1,26 @@
+################################################################
+# monitor.sh 실행 결과
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ ls -l /home/agent-admin/agent-app/bin/monitor.sh
+-rwxr-x--- 1 agent-dev agent-core 8411 Oct 30 15:58 /home/agent-admin/agent-app/bin/monitor.sh
+(exit=0)
+
+$ sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
+====== SYSTEM MONITOR RESULT ======
+
+[HEALTH CHECK]
+Checking process 'agent-app-linux'... [OK] (PID: 2262)
+Checking port 15034... [OK]
+Checking firewall (ufw)... [OK] (active)
+
+[RESOURCE MONITORING]
+CPU Usage : 6.5%
+MEM Usage : 55.1%
+DISK Used : 99%
+[WARNING] MEM threshold exceeded (55.1% > 10%)
+[WARNING] DISK threshold exceeded (99% > 80%)
+
+[INFO] Log appended: /var/log/agent-app/monitor.log
+(exit=0)

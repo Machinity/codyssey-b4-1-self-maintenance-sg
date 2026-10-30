@@ -1,0 +1,47 @@
+################################################################
+# 계정/그룹 생성 확인
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ id agent-admin
+uid=1001(agent-admin) gid=1003(agent-admin) groups=1003(agent-admin),1001(agent-common),1002(agent-core)
+(exit=0)
+
+$ id agent-dev
+uid=1002(agent-dev) gid=1004(agent-dev) groups=1004(agent-dev),1001(agent-common),1002(agent-core)
+(exit=0)
+
+$ id agent-test
+uid=1003(agent-test) gid=1005(agent-test) groups=1005(agent-test),1001(agent-common)
+(exit=0)
+
+$ getent group agent-common agent-core
+agent-common:x:1001:agent-admin,agent-dev,agent-test
+agent-core:x:1002:agent-admin,agent-dev
+(exit=0)
+
+$ getent passwd agent-admin agent-dev agent-test
+agent-admin:x:1001:1003:Agent Ops Admin(cron runner):/home/agent-admin:/bin/bash
+agent-dev:x:1002:1004:Agent Developer(monitor.sh author):/home/agent-dev:/bin/bash
+agent-test:x:1003:1005:Agent QATester:/home/agent-test:/bin/bash
+(exit=0)
+
+# sudoers: monitor 용 최소 권한 규칙
+
+$ ls -l /etc/sudoers.d/agent-monitor && cat /etc/sudoers.d/agent-monitor
+-r--r----- 1 root root 510 Oct 30 14:26 /etc/sudoers.d/agent-monitor
+# /etc/sudoers.d/agent-monitor  (root:root, 0440)
+# 반드시 'sudo visudo -f /etc/sudoers.d/agent-monitor' 로 편집한다.
+#   (문법 오류가 있는 sudoers 파일은 sudo 전체를 망가뜨린다)
+#
+# monitor.sh 가 방화벽 상태를 "조회"만 할 수 있도록 허용한다.
+#   - 인자까지 정확히 'status' 로 고정 → 'ufw disable' 등은 불가
+#   - 비밀번호 없이(NOPASSWD) → cron 에서 사람 입력 없이 실행 가능
+%agent-core ALL=(root) NOPASSWD: /usr/sbin/ufw status
+(exit=0)
+
+$ sudo -l -U agent-admin | tail -n 3
+
+User agent-admin may run the following commands on robot-01:
+    (root) NOPASSWD: /usr/sbin/ufw status
+(exit=0)

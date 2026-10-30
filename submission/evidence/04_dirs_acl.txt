@@ -1,0 +1,97 @@
+################################################################
+# 디렉토리 구조 및 권한(ACL 포함)
+# collected: 2026-10-30 16:59:48 KST on robot-01
+################################################################
+
+$ namei -l /home/agent-admin/agent-app/api_keys
+f: /home/agent-admin/agent-app/api_keys
+drwxr-xr-x root        root         /
+drwxr-xr-x root        root         home
+drwxr-x--- agent-admin agent-admin  agent-admin
+drwxr-s--- agent-admin agent-common agent-app
+drwxrws--- agent-admin agent-core   api_keys
+(exit=0)
+
+$ ls -ld /home/agent-admin/agent-app /home/agent-admin/agent-app/upload_files /home/agent-admin/agent-app/api_keys /home/agent-admin/agent-app/bin /var/log/agent-app
+drwxr-s---  5 agent-admin agent-common 4096 Oct 30 12:29 /home/agent-admin/agent-app
+drwxrws---+ 2 agent-admin agent-core   4096 Oct 30 12:40 /home/agent-admin/agent-app/api_keys
+drwxr-s---  2 agent-dev   agent-core   4096 Oct 30 15:58 /home/agent-admin/agent-app/bin
+drwxrws---+ 2 agent-admin agent-common 4096 Oct 30 10:40 /home/agent-admin/agent-app/upload_files
+drwxrws---+ 2 agent-admin agent-core   4096 Oct 30 16:06 /var/log/agent-app
+(exit=0)
+
+$ ls -l /home/agent-admin/agent-app/api_keys /home/agent-admin/agent-app/bin
+/home/agent-admin/agent-app/api_keys:
+total 8
+-rw-rw---- 1 agent-admin agent-core 19 Oct 30 12:40 secret.key
+-rw-rw---- 1 agent-admin agent-core 19 Oct 30 11:50 t_secret.key
+
+/home/agent-admin/agent-app/bin:
+total 12
+-rwxr-x--- 1 agent-dev agent-core 8411 Oct 30 15:58 monitor.sh
+(exit=0)
+
+$ getfacl -p /home/agent-admin /home/agent-admin/agent-app /home/agent-admin/agent-app/upload_files /home/agent-admin/agent-app/api_keys /var/log/agent-app
+# file: /home/agent-admin
+# owner: agent-admin
+# group: agent-admin
+user::rwx
+group::r-x
+group:agent-common:--x
+mask::r-x
+other::---
+
+# file: /home/agent-admin/agent-app
+# owner: agent-admin
+# group: agent-common
+# flags: -s-
+user::rwx
+group::r-x
+other::---
+
+# file: /home/agent-admin/agent-app/upload_files
+# owner: agent-admin
+# group: agent-common
+# flags: -s-
+user::rwx
+group::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:other::---
+
+# file: /home/agent-admin/agent-app/api_keys
+# owner: agent-admin
+# group: agent-core
+# flags: -s-
+user::rwx
+group::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:other::---
+
+# file: /var/log/agent-app
+# owner: agent-admin
+# group: agent-core
+# flags: -s-
+user::rwx
+group::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:other::---
+
+(exit=0)
+
+# 권한 검증 테스트 (OK = 허용되어야 함, DENIED = 차단되어야 함)
+
+agent-test   touch /home/agent-admin/agent-app/upload_files/.evidence_$(id -un) && rm -f /home/agent-admin/agent-app/upload_files/.evidence_$(id -un) expect=ALLOWED  got=ALLOWED  PASS
+agent-dev    touch /home/agent-admin/agent-app/upload_files/.evidence_$(id -un) && rm -f /home/agent-admin/agent-app/upload_files/.evidence_$(id -un) expect=ALLOWED  got=ALLOWED  PASS
+agent-test   ls /home/agent-admin/agent-app/api_keys                      expect=DENIED   got=DENIED   PASS
+agent-test   cat /home/agent-admin/agent-app/api_keys/*                   expect=DENIED   got=DENIED   PASS
+agent-test   ls /var/log/agent-app                                        expect=DENIED   got=DENIED   PASS
+agent-dev    test -r /home/agent-admin/agent-app/api_keys/secret.key || test -r /home/agent-admin/agent-app/api_keys/t_secret.key expect=ALLOWED  got=ALLOWED  PASS
+agent-dev    touch /var/log/agent-app/.evidence && rm -f /var/log/agent-app/.evidence expect=ALLOWED  got=ALLOWED  PASS
+agent-admin  test -x /home/agent-admin/agent-app/bin/monitor.sh           expect=ALLOWED  got=ALLOWED  PASS
+agent-test   test -x /home/agent-admin/agent-app/bin/monitor.sh && /home/agent-admin/agent-app/bin/monitor.sh expect=DENIED   got=DENIED   PASS

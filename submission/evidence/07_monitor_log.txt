@@ -1,0 +1,32 @@
+################################################################
+# monitor.log 누적 기록
+# collected: 2026-10-30 16:59:49 KST on robot-01
+################################################################
+
+$ ls -l /var/log/agent-app/
+total 436
+-rw-rw---- 1 agent-admin agent-core 435290 Oct 30 16:59 agent_app.log
+-rw-rw---- 1 agent-admin agent-core   2864 Oct 30 16:59 monitor.log
+(exit=0)
+
+$ wc -l /var/log/agent-app/monitor.log
+43 /var/log/agent-app/monitor.log
+(exit=0)
+
+$ tail -n 15 /var/log/agent-app/monitor.log
+[2026-10-30 16:46:02] PID:2549 CPU:6.9% MEM:56.2% DISK_USED:99%
+[2026-10-30 16:47:03] PID:2549 CPU:6.0% MEM:47.1% DISK_USED:99%
+[2026-10-30 16:48:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:49:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:50:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:51:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:52:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:53:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:54:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:55:02] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:56:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:57:01] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:58:02] PID:2262 CPU:6.0% MEM:56.1% DISK_USED:99%
+[2026-10-30 16:59:02] PID:2262 CPU:6.1% MEM:49.2% DISK_USED:99%
+[2026-10-30 16:59:49] PID:2262 CPU:6.5% MEM:55.1% DISK_USED:99%
+(exit=0)
