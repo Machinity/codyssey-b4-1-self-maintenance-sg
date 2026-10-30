@@ -91,16 +91,34 @@ monitor.log(측정 기록)와 콘솔 출력(경고 메시지)을 **분리해서 
 ### 2-1. cron 서비스 확인
 
 ```bash
-ops@vm$ systemctl is-active cron        # active
-ops@vm$ systemctl is-enabled cron       # enabled (부팅 시 자동 시작)
+ops@robot-01:~$ systemctl is-active cron
+active      # active
+
+ops@robot-01:~$ systemctl is-enabled cron
+enabled     # enabled (부팅 시 자동 시작)  
 ```
 
 ### 2-2. cron 과 같은 환경으로 미리 테스트 (가장 중요한 습관)
 
 ```bash
 # env -i : 환경 변수를 모두 비움 / PATH 만 cron 과 똑같이
-ops@vm$ sudo -u agent-admin env -i PATH=/usr/bin:/bin HOME=/home/agent-admin SHELL=/bin/sh \
-          /home/agent-admin/agent-app/bin/monitor.sh; echo "exit=$?"
+ops@robot-01:~$ sudo -u agent-admin env -i PATH=/usr/bin:/bin HOME=/home/agent-admin SHELL=/bin/sh           /home/agent-admin/agent-app/bin/monitor.sh; echo "exit=$?"
+====== SYSTEM MONITOR RESULT ======
+
+[HEALTH CHECK]
+Checking process 'agent-app-linux'... [OK] (PID: 2241)
+Checking port 15034... [OK]
+Checking firewall (ufw)... [OK] (active)
+
+[RESOURCE MONITORING]
+CPU Usage : 4.6%
+MEM Usage : 48.0%
+DISK Used : 99%
+[WARNING] MEM threshold exceeded (48.0% > 10%)
+[WARNING] DISK threshold exceeded (99% > 80%)
+
+[INFO] Log appended: /var/log/agent-app/monitor.log
+exit=0
 ```
 
 ✅ 체크포인트: 06장 T1 과 같은 결과(`exit=0`). 여기서 실패하면 cron 에서도 실패합니다.
@@ -110,7 +128,17 @@ ops@vm$ sudo -u agent-admin env -i PATH=/usr/bin:/bin HOME=/home/agent-admin SHE
 **방법 1 — 편집기로 직접 (권장: 형식을 익히기 위해)**
 
 ```bash
-ops@vm$ sudo crontab -u agent-admin -e
+ops@robot-01:~$ sudo crontab -u agent-admin -e
+no crontab for agent-admin - using an empty one
+
+Select an editor.  To change later, run 'select-editor'.
+  1. /bin/nano        <---- easiest
+  2. /usr/bin/vim.basic
+  3. /usr/bin/vim.tiny
+  4. /bin/ed
+
+Choose 1-4 [1]: 1
+crontab: installing new crontab
 # 처음이면 편집기 선택 → 1 (nano)
 ```
 
@@ -139,33 +167,76 @@ ops@vm$ sudo crontab -u agent-admin $REPO/config/cron/agent-admin.crontab
 ### 2-4. 등록 확인
 
 ```bash
-ops@vm$ sudo crontab -u agent-admin -l
-ops@vm$ sudo ls -l /var/spool/cron/crontabs/
-# -rw------- 1 agent-admin crontab ... agent-admin
+ops@robot-01:~$ sudo crontab -u agent-admin -l
+# Edit this file to introduce tasks to be run by cron.
+#
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+#
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').
+#
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+#
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+#
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+#
+# For more information see the manual pages of crontab(5) and cron(8)
+#
+# m h  dom mon dow   command
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+
+* * * * * /home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor
+
+ops@robot-01:~$ sudo ls -l /var/spool/cron/crontabs/
+total 4
+-rw------- 1 agent-admin crontab 1251 Oct 30 16:27 agent-admin
 ```
 
 ### 2-5. 자동 실행 확인 — "1분 후 로그 증가"
 
 ```bash
-ops@vm$ date '+%T'; sudo wc -l /var/log/agent-app/monitor.log
-# 14:10:25
-# 42 /var/log/agent-app/monitor.log
+ops@robot-01:~$ date '+%T'; sudo wc -l /var/log/agent-app/monitor.log
+16:29:37
+12 /var/log/agent-app/monitor.log
 
 # 1~2분 기다린 뒤
-ops@vm$ date '+%T'; sudo wc -l /var/log/agent-app/monitor.log
-# 14:12:03
-# 44 /var/log/agent-app/monitor.log        ← 사람이 실행하지 않았는데 증가
+ops@robot-01:~$ date '+%T'; sudo wc -l /var/log/agent-app/monitor.log
+16:30:13
+13 /var/log/agent-app/monitor.log     #   ← 사람이 실행하지 않았는데 증가
 
-ops@vm$ sudo tail -n 3 /var/log/agent-app/monitor.log
-# [2026-09-23 14:11:01] PID:5012 CPU:18.2% MEM:11.9% DISK_USED:23%
-# [2026-09-23 14:12:01] PID:5012 CPU:27.5% MEM:12.3% DISK_USED:23%
+ops@robot-01:~$ sudo tail -n 3 /var/log/agent-app/monitor.log
+[2026-10-30 16:28:02] PID:2241 CPU:3.0% MEM:45.5% DISK_USED:99%
+[2026-10-30 16:29:02] PID:2241 CPU:1.5% MEM:56.7% DISK_USED:99%
+[2026-10-30 16:30:02] PID:2241 CPU:3.5% MEM:48.7% DISK_USED:99%
 #          ↑ 매분 01초 전후 (cron 은 0초에 시작, CPU 측정에 1초 소요)
 ```
 
 실시간으로 보고 싶다면:
 
 ```bash
-ops@vm$ sudo tail -f /var/log/agent-app/monitor.log      # Ctrl+C 로 종료
+ops@robot-01:~$ sudo tail -f /var/log/agent-app/monitor.log
+[2026-10-30 16:02:09] PID:2955 CPU:5.5% MEM:58.2% DISK_USED:98%
+[2026-10-30 16:04:25] PID:2955 CPU:2.0% MEM:51.0% DISK_USED:98%
+[2026-10-30 16:06:45] PID:2955 CPU:5.5% MEM:56.7% DISK_USED:98%
+[2026-10-30 16:13:14] PID:2955 CPU:6.0% MEM:52.7% DISK_USED:98%
+[2026-10-30 16:22:58] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:24:35] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:26:35] PID:2241 CPU:4.6% MEM:48.0% DISK_USED:99%
+[2026-10-30 16:28:02] PID:2241 CPU:3.0% MEM:45.5% DISK_USED:99%
+[2026-10-30 16:29:02] PID:2241 CPU:1.5% MEM:56.7% DISK_USED:99%
+[2026-10-30 16:30:02] PID:2241 CPU:3.5% MEM:48.7% DISK_USED:99%
+[2026-10-30 16:31:02] PID:2241 CPU:0.5% MEM:54.3% DISK_USED:99%
+^C      # Ctrl+C 로 종료
 ```
 
 ✅ 체크포인트: 사람이 실행하지 않아도 **매분 한 줄씩** 늘어난다. 📸 스크린샷 (전/후 `wc -l` + `tail`).
@@ -174,12 +245,40 @@ ops@vm$ sudo tail -f /var/log/agent-app/monitor.log      # Ctrl+C 로 종료
 
 ```bash
 # cron 이 명령을 실행했다는 기록
-ops@vm$ sudo journalctl -t CRON --since "5 min ago" --no-pager | grep agent-admin
-# ... CRON[6120]: (agent-admin) CMD (/home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor)
+ops@robot-01:~$ sudo journalctl -t CRON --since "5 min ago" --no-pager | grep agent-admin
+Oct 30 16:28:01 robot-01 CRON[2307]: pam_unix(cron:session): session opened for user agent-admin(uid=1001) by (uid=0)
+Oct 30 16:28:01 robot-01 CRON[2308]: (agent-admin) CMD (/home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor)
+Oct 30 16:28:02 robot-01 CRON[2307]: pam_unix(cron:session): session closed for user agent-admin
+Oct 30 16:29:01 robot-01 CRON[2351]: pam_unix(cron:session): session opened for user agent-admin(uid=1001) by (uid=0)
+Oct 30 16:29:01 robot-01 CRON[2352]: (agent-admin) CMD (/home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor)
+Oct 30 16:29:02 robot-01 CRON[2351]: pam_unix(cron:session): session closed for user agent-admin
+Oct 30 16:30:01 robot-01 CRON[2394]: pam_unix(cron:session): session opened for user agent-admin(uid=1001) by (uid=0)
+Oct 30 16:30:01 robot-01 CRON[2395]: (agent-admin) CMD (/home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor)
+Oct 30 16:30:02 robot-01 CRON[2394]: pam_unix(cron:session): session closed for user agent-admin
+Oct 30 16:31:01 robot-01 CRON[2440]: pam_unix(cron:session): session opened for user agent-admin(uid=1001) by (uid=0)
+Oct 30 16:31:01 robot-01 CRON[2441]: (agent-admin) CMD (/home/agent-admin/agent-app/bin/monitor.sh 2>&1 | /usr/bin/logger -t agent-monitor)
+Oct 30 16:31:02 robot-01 CRON[2440]: pam_unix(cron:session): session closed for user agent-admin
 
 # monitor.sh 의 콘솔 출력(경고 포함) — logger 로 보낸 것
-ops@vm$ journalctl -t agent-monitor --since "5 min ago" --no-pager | tail -n 15
-ops@vm$ journalctl -t agent-monitor --since today | grep -c WARNING      # 오늘 경고 횟수
+ops@robot-01:~$ journalctl -t agent-monitor --since "5 min ago" --no-pager | tail -n 15
+Oct 30 16:31:01 robot-01 agent-monitor[2443]: ====== SYSTEM MONITOR RESULT ======
+Oct 30 16:31:01 robot-01 agent-monitor[2443]:
+Oct 30 16:31:01 robot-01 agent-monitor[2443]: [HEALTH CHECK]
+Oct 30 16:31:01 robot-01 agent-monitor[2443]: Checking process 'agent-app-linux'... [OK] (PID: 2241)
+Oct 30 16:31:01 robot-01 agent-monitor[2443]: Checking port 15034... [OK]
+Oct 30 16:31:01 robot-01 agent-monitor[2443]: Checking firewall (ufw)... [OK] (active)
+Oct 30 16:31:02 robot-01 agent-monitor[2443]:
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: [RESOURCE MONITORING]
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: CPU Usage : 0.5%
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: MEM Usage : 54.3%
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: DISK Used : 99%
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: [WARNING] MEM threshold exceeded (54.3% > 10%)
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: [WARNING] DISK threshold exceeded (99% > 80%)
+Oct 30 16:31:02 robot-01 agent-monitor[2443]:
+Oct 30 16:31:02 robot-01 agent-monitor[2443]: [INFO] Log appended: /var/log/agent-app/monitor.log
+
+ops@robot-01:~$ journalctl -t agent-monitor --since today | grep -c WARNING
+10      # 오늘 경고 횟수
 ```
 
 > `ops` 가 sudo 없이 `journalctl -t agent-monitor` 를 볼 수 있는 이유: Ubuntu 기본 사용자는 `adm` 그룹이라 시스템 로그 열람 권한이 있습니다. (`id ops` 로 확인)
@@ -188,10 +287,14 @@ ops@vm$ journalctl -t agent-monitor --since today | grep -c WARNING      # 오�
 
 ```bash
 # 앱을 Ctrl+C 로 종료하고 (tmux attach -t agent → Ctrl+C → Ctrl+b d) 2분 기다린 뒤
-ops@vm$ sudo tail -n 3 /var/log/agent-app/monitor.log
-# [2026-09-23 14:20:01] [ERROR] Process 'agent-app-linux' is not running
-# [2026-09-23 14:21:01] [ERROR] Process 'agent-app-linux' is not running
-ops@vm$ journalctl -t agent-monitor --since "3 min ago" --no-pager | grep FAIL
+ops@robot-01:~$ sudo tail -n 3 /var/log/agent-app/monitor.log
+[2026-10-30 16:32:02] PID:2241 CPU:1.5% MEM:51.6% DISK_USED:99%
+[2026-10-30 16:33:02] [ERROR] Process 'agent-app-linux' is not running
+[2026-10-30 16:34:01] [ERROR] Process 'agent-app-linux' is not running
+
+ops@robot-01:~$ journalctl -t agent-monitor --since "3 min ago" --no-pager | grep FAIL
+Oct 30 16:33:02 robot-01 agent-monitor[2522]: Checking process 'agent-app-linux'... [FAIL]
+Oct 30 16:34:01 robot-01 agent-monitor[2538]: Checking process 'agent-app-linux'... [FAIL]
 ```
 
 **앱을 다시 실행**합니다. 로그만 봐도 "14:19~14:21 사이 앱 중단"을 알 수 있습니다. 이것이 미션 소개의 "로그가 없으면 원인 분석은 감에 의존" 의 반대 상황입니다.
